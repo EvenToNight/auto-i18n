@@ -11,6 +11,7 @@ input_file = os.getenv("INPUT_INPUT_FILE")
 previous_head = os.getenv("INPUT_PREVIOUS_HEAD", "")
 current_head = os.getenv("INPUT_CURRENT_HEAD", "")
 evaluate_changes = os.getenv("INPUT_EVALUATE_CHANGES", "true").lower() == "true"
+update_only_new = os.getenv("INPUT_UPDATE_ONLY_NEW", "true").lower() == "true"
 
 input_path = Path(input_file)
 if not input_path.is_file():
@@ -43,7 +44,17 @@ else:
 with open(input_path, "r", encoding="utf-8") as f:
     content = f.read()
 
-def translate_content(text, src, tgt):
+def extract_key_value_pairs(text):
+    """Extract key-value pairs from i18n file"""
+    # Match: key: "value" or "key": "value"
+    pattern = r'["\']?(\w+)["\']?\s*:\s*["\']([^"\']+)["\']'
+    return {match.group(1): match.group(2) for match in re.finditer(pattern, text)}
+
+def translate_content(text, src, tgt, existing_translations=None):
+    """Translate content, preserving existing translations from target file"""
+    if existing_translations is None:
+        existing_translations = {}
+
     pattern = r"(\".*?\"|'.*?')"
 
     def replacer(match):
@@ -65,6 +76,15 @@ def translate_content(text, src, tgt):
         if stripped.strip() == "":
             return original
 
+        # Check if the line contains a key that exists in existing translations
+        key_match = re.search(r'["\']?(\w+)["\']?\s*:\s*', line)
+        if key_match:
+            key = key_match.group(1)
+            if key in existing_translations:
+                # Use existing translation for this key
+                return f"{quote}{existing_translations[key]}{quote}"
+
+        # Translate new or updated strings
         translated = GoogleTranslator(source=src, target=tgt).translate(stripped)
         return f"{quote}{translated}{quote}"
 
@@ -74,8 +94,21 @@ output_dir = input_path.parent
 file_ext = input_path.suffix
 
 for tgt_lang in target_langs:
-    translated_text = translate_content(content, source_lang, tgt_lang)
     output_file = output_dir / f"{tgt_lang}{file_ext}"
+
+    # Load existing translations if the target file already exists and update_only_new is enabled
+    existing_translations = {}
+    if update_only_new and output_file.exists():
+        print(f"Loading existing translations from '{output_file}'...")
+        with open(output_file, "r", encoding="utf-8") as f:
+            existing_content = f.read()
+            existing_translations = extract_key_value_pairs(existing_content)
+            print(f"  Found {len(existing_translations)} existing translation(s) to preserve")
+    elif not update_only_new:
+        print(f"Re-translating all keys for '{output_file}'...")
+
+    translated_text = translate_content(content, source_lang, tgt_lang, existing_translations)
+
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(translated_text)
-    print(f"Translated '{input_file}' -> '{output_file}'")
+    print(f"✓ Translated '{input_file}' -> '{output_file}'")

@@ -22,6 +22,10 @@ inputs:
     description: "Check if input file has changes respect to the previous head before translating"
     required: false
     default: "true"
+  update_only_new:
+    description: "Only translate new keys, preserve existing translations"
+    required: false
+    default: "true"
   github_token:
     description: "GitHub token for authentication"
     required: false
@@ -58,12 +62,17 @@ runs:
         INPUT_PREVIOUS_HEAD: ${{ inputs.previous_head }}
         INPUT_CURRENT_HEAD: ${{ inputs.current_head }}
         INPUT_EVALUATE_CHANGES: ${{ inputs.evaluate_changes }}
+        INPUT_UPDATE_ONLY_NEW: ${{ inputs.update_only_new }}
 
     - name: Commit and push translations
       run: |
-        git config --local user.name "github-actions[bot]"
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        BOT_NAME=$(gh api /app --jq '.name' 2>/dev/null || echo "github-actions")
+        BOT_ID=$(gh api /app --jq '.id' 2>/dev/null || echo "41898282")
 
+        git config --local user.name "${BOT_NAME}[bot]"
+        git config --local user.email "${BOT_ID}+${BOT_NAME}[bot]@users.noreply.github.com"
+
+        echo "Bot: ${BOT_NAME}[bot]"
         echo "Checking for changes..."
         git status
 
@@ -79,3 +88,5 @@ runs:
           echo "✓ Changes pushed successfully"
         fi
       shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token }}
