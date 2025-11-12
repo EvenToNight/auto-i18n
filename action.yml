@@ -1,0 +1,36 @@
+name: "Translate i18n Files"
+description: "Automatically translate JS/TS localization files with Python and deep-translator"
+inputs:
+  source:
+    description: "Source language code (e.g., en)"
+    required: true
+  targets:
+    description: "Comma-separated target languages (e.g., it,fr)"
+    required: true
+  input-file:
+    description: "Path to the JS/TS file to translate (e.g., i18n/locale)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run translation script
+      run: python translator.py
+      shell: bash
+      env:
+        INPUT_SOURCE: ${{ inputs.source }}
+        INPUT_TARGETS: ${{ inputs.targets }}
+        INPUT_INPUT_FILE: ${{ inputs['input-file'] }}
