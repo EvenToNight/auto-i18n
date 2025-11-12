@@ -1,5 +1,6 @@
 import os
 import re
+import subprocess
 from pathlib import Path
 from deep_translator import GoogleTranslator
 
@@ -18,24 +19,24 @@ if not input_path.is_file():
 
 if evaluate_changes:
     print(f"Checking for changes in '{input_file}' since {previous_head[:7]}...")
-        try:
-            result = subprocess.run(
-                ["git", "diff", "--name-only", previous_head, current_head, str(input_path)],
-                capture_output=True,
-                text=True,
-                check=True,
-                cwd=os.getcwd()
-            )
-            
-            if not result.stdout.strip():
-                print(f"✓ No changes detected in '{input_file}'. Skipping translation.")
-                exit(0)
-            else:
-                print(f"✓ Changes detected in '{input_file}'. Proceeding with translation.")
-        except subprocess.CalledProcessError as e:
-            print(f"Warning: Could not check git diff (error: {e}). Proceeding with translation anyway.")
-        except FileNotFoundError:
-            print("Warning: git command not found. Proceeding with translation anyway.")
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", previous_head, current_head, str(input_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=os.getcwd()
+        )
+        
+        if not result.stdout.strip():
+            print(f"✓ No changes detected in '{input_file}'. Skipping translation.")
+            exit(0)
+        else:
+            print(f"✓ Changes detected in '{input_file}'. Proceeding with translation.")
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Could not check git diff (error: {e}). Proceeding with translation anyway.")
+    except FileNotFoundError:
+        print("Warning: git command not found. Proceeding with translation anyway.")
 else:
     print("Change evaluation disabled. Proceeding with translation.")
 
