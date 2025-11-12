@@ -25,11 +25,11 @@ runs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        pip install -r ${{ github.action_path }}/requirements.txt
       shell: bash
 
     - name: Run translation script
-      run: python translator.py
+      run: python ${{ github.action_path }}/translator.py
       shell: bash
       env:
         INPUT_SOURCE: ${{ inputs.source }}
