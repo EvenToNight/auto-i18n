@@ -6,12 +6,38 @@ from deep_translator import GoogleTranslator
 source_lang = os.getenv("INPUT_SOURCE")
 targets = os.getenv("INPUT_TARGETS", "")
 target_langs = [lang.strip() for lang in targets.split(",") if lang.strip()]
-input_file = os.getenv("INPUT_INPUT_FILE")  # e.g., i18n/locale/it.js
+input_file = os.getenv("INPUT_INPUT_FILE")
+previous_head = os.getenv("INPUT_PREVIOUS_HEAD", "")
+current_head = os.getenv("INPUT_CURRENT_HEAD", "")
+evaluate_changes = os.getenv("INPUT_EVALUATE_CHANGES", "true").lower() == "true"
 
 input_path = Path(input_file)
 if not input_path.is_file():
     print(f"File '{input_file}' does not exist")
     exit(1)
+
+if evaluate_changes:
+    print(f"Checking for changes in '{input_file}' since {previous_head[:7]}...")
+        try:
+            result = subprocess.run(
+                ["git", "diff", "--name-only", previous_head, current_head, str(input_path)],
+                capture_output=True,
+                text=True,
+                check=True,
+                cwd=os.getcwd()
+            )
+            
+            if not result.stdout.strip():
+                print(f"✓ No changes detected in '{input_file}'. Skipping translation.")
+                exit(0)
+            else:
+                print(f"✓ Changes detected in '{input_file}'. Proceeding with translation.")
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: Could not check git diff (error: {e}). Proceeding with translation anyway.")
+        except FileNotFoundError:
+            print("Warning: git command not found. Proceeding with translation anyway.")
+else:
+    print("Change evaluation disabled. Proceeding with translation.")
 
 with open(input_path, "r", encoding="utf-8") as f:
     content = f.read()

@@ -14,6 +14,10 @@ inputs:
     description: "Git commit hash to compare changes against"
     required: false
     default: "${{ github.event.before }}"
+  current_head:
+    description: "Current Git commit hash"
+    required: false
+    default: "${{ github.sha }}"
   evaluate_changes:
     description: "Check if input file has changes respect to the previous head before translating"
     required: false
@@ -45,4 +49,5 @@ runs:
         INPUT_TARGETS: ${{ inputs.targets }}
         INPUT_INPUT_FILE: ${{ inputs.input_file }}
         INPUT_PREVIOUS_HEAD: ${{ inputs.previous_head }}
+        INPUT_CURRENT_HEAD: ${{ inputs.current_head }}
         INPUT_EVALUATE_CHANGES: ${{ inputs.evaluate_changes }}
