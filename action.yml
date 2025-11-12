@@ -34,6 +34,7 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
+        fetch-depth: 0
         token: ${{ inputs.github_token }}
 
     - name: Setup Python
@@ -57,3 +58,24 @@ runs:
         INPUT_PREVIOUS_HEAD: ${{ inputs.previous_head }}
         INPUT_CURRENT_HEAD: ${{ inputs.current_head }}
         INPUT_EVALUATE_CHANGES: ${{ inputs.evaluate_changes }}
+
+    - name: Commit and push translations
+      run: |
+        git config --local user.name "github-actions[bot]"
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+
+        echo "Checking for changes..."
+        git status
+
+        git add .
+
+        if git diff-index --quiet HEAD; then
+          echo "No changes to commit. Translation files are already up to date."
+        else
+          echo "Changes detected. Creating commit..."
+          git commit -m "chore(i18n): auto-translate i18n files [skip ci]"
+          git pull --rebase origin ${{ github.ref_name }}
+          git push
+          echo "✓ Changes pushed successfully"
+        fi
+      shell: bash
