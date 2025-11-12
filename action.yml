@@ -7,9 +7,18 @@ inputs:
   targets:
     description: "Comma-separated target languages (e.g., it,fr)"
     required: true
-  input-file:
+  input_file:
     description: "Path to the JS/TS file to translate (e.g., i18n/locale)"
     required: true
+  previous_head:
+    description: "Git commit hash to compare changes against"
+    required: false
+    default: "${{ github.event.before }}"
+  evaluate_changes:
+    description: "Check if input file has changes respect to the previous head before translating"
+    required: false
+    default: "true"
+  
 
 runs:
   using: "composite"
@@ -34,4 +43,6 @@ runs:
       env:
         INPUT_SOURCE: ${{ inputs.source }}
         INPUT_TARGETS: ${{ inputs.targets }}
-        INPUT_INPUT_FILE: ${{ inputs['input-file'] }}
+        INPUT_INPUT_FILE: ${{ inputs.input_file }}
+        INPUT_PREVIOUS_HEAD: ${{ inputs.previous_head }}
+        INPUT_EVALUATE_CHANGES: ${{ inputs.evaluate_changes }}
