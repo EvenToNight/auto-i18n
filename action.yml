@@ -66,13 +66,22 @@ runs:
 
     - name: Commit and push translations
       run: |
-        BOT_NAME=$(gh api /app --jq '.name' 2>/dev/null || echo "github-actions")
-        BOT_ID=$(gh api /app --jq '.id' 2>/dev/null || echo "41898282")
+        # Try to get bot info from token, fallback to github-actions if it fails
+        BOT_INFO=$(gh api /user 2>/dev/null || echo "{}")
+        BOT_NAME=$(echo "$BOT_INFO" | jq -r '.login // "github-actions[bot]"')
+        BOT_ID=$(echo "$BOT_INFO" | jq -r '.id // "41898282"')
 
-        git config --local user.name "${BOT_NAME}[bot]"
-        git config --local user.email "${BOT_ID}+${BOT_NAME}[bot]@users.noreply.github.com"
+        # If login already contains [bot], use as-is, otherwise add [bot]
+        if [[ "$BOT_NAME" == *"[bot]"* ]]; then
+          GIT_NAME="$BOT_NAME"
+        else
+          GIT_NAME="${BOT_NAME}[bot]"
+        fi
 
-        echo "Bot: ${BOT_NAME}[bot]"
+        git config --local user.name "$GIT_NAME"
+        git config --local user.email "${BOT_ID}+${GIT_NAME}@users.noreply.github.com"
+
+        echo "Committing as: $GIT_NAME"
         echo "Checking for changes..."
         git status
 
