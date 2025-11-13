@@ -1,5 +1,8 @@
 name: "Translate i18n Files"
 description: "Automatically translate JS/TS localization files with Python and deep-translator"
+branding:
+  icon: 'globe'
+  color: 'blue'
 inputs:
   source:
     description: "Source language code (e.g., en)"
@@ -30,7 +33,6 @@ inputs:
     description: "GitHub token for authentication"
     required: false
     default: "${{ github.token }}"
-  
 
 runs:
   using: "composite"
