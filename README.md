@@ -5,8 +5,7 @@ Automatically translate JavaScript/TypeScript localization files using Google Tr
 ## Features
 
 - 🌍 Automatic translation to multiple languages
-- 🔄 Preserves existing translations (only translates new/updated keys)
-- 🚫 Skip specific strings with `[ignorei18n]` comments
+- 🚫 Preserve custom translations with `[ignorei18n]` in destination files
 - 📦 Auto-commits and pushes translations
 - ⚡ Smart change detection (only runs when source file changes)
 
@@ -40,36 +39,41 @@ jobs:
 | `previous_head` | Git commit hash to compare changes against | ❌ No | `${{ github.event.before }}` |
 | `current_head` | Current Git commit hash | ❌ No | `${{ github.sha }}` |
 | `evaluate_changes` | Check if input file has changes before translating | ❌ No | `true` |
-| `update_only_new` | Only translate new keys, preserve existing translations | ❌ No | `true` |
 | `github_token` | GitHub token for authentication | ❌ No | `${{ github.token }}` |
 
 ## How it works
 
-1. **Change Detection**: Checks if the source file has changed (can be disabled)
-2. **Load Existing Translations**: Reads existing target files to preserve manual edits
-3. **Translate**: Translates only new or updated keys using Google Translate
+1. **Change Detection**: Checks if the source file has changed since the last commit
+   - If no changes: skips translation entirely
+   - If changed: proceeds with translation for all target languages
+2. **Load Preserved Keys**: Reads destination files to find keys marked with `[ignorei18n]`
+3. **Translate**: Translates all strings from source, except those marked as ignored
 4. **Write Files**: Creates/updates target language files (e.g., `it.ts`, `fr.ts`)
 5. **Commit & Push**: Automatically commits and pushes changes with `[skip ci]`
 
-## Skip Translation
+## Preserve Custom Translations
 
-Add `// [ignorei18n]` after any string to skip translation:
+Add `// [ignorei18n]` in the **destination file** to preserve custom translations:
 
+**Source file (`en.ts`):**
 ```typescript
 export default {
   brandName: 'MyApp', // [ignorei18n]
-  welcome: 'Welcome',  // ← will be translated
+  welcome: 'Welcome',
+  goodbye: 'Goodbye',
 }
 ```
 
-**Result:**
+**Destination file with custom translation (`it.ts`):**
 ```typescript
-// it.ts
 export default {
-  brandName: 'MyApp', // [ignorei18n]  ← not translated
-  welcome: 'Benvenuto',  // ← translated
+  brandName: 'MyApp', // [ignorei18n]
+  welcome: 'Ciao!', // [ignorei18n] ← custom translation, won't be overwritten
+  goodbye: 'Arrivederci',
 }
 ```
+
+You can also use `[ignorei18n]` in the source file to skip translation for all languages.
 
 ## File Format
 

@@ -11,7 +11,6 @@ input_file = os.getenv("INPUT_INPUT_FILE")
 previous_head = os.getenv("INPUT_PREVIOUS_HEAD", "")
 current_head = os.getenv("INPUT_CURRENT_HEAD", "")
 evaluate_changes = os.getenv("INPUT_EVALUATE_CHANGES", "true").lower() == "true"
-update_only_new = os.getenv("INPUT_UPDATE_ONLY_NEW", "true").lower() == "true"
 
 input_path = Path(input_file)
 if not input_path.is_file():
@@ -28,7 +27,7 @@ if evaluate_changes:
             check=True,
             cwd=os.getcwd()
         )
-        
+
         if not result.stdout.strip():
             print(f"✓ No changes detected in '{input_file}'. Skipping translation.")
             exit(0)
@@ -44,24 +43,54 @@ else:
 with open(input_path, "r", encoding="utf-8") as f:
     content = f.read()
 
-def extract_key_value_pairs(text):
-    """Extract key-value pairs from i18n file"""
-    # Match: key: "value" or "key": "value"
-    pattern = r'["\']?(\w+)["\']?\s*:\s*["\']([^"\']+)["\']'
-    return {match.group(1): match.group(2) for match in re.finditer(pattern, text)}
+# Regex pattern for key-value pairs
+KEY_VALUE_PATTERN = r'["\']?(\w+)["\']?\s*:\s*["\']([^"\']+)["\']'
 
-def translate_content(text, src, tgt, existing_translations=None):
-    """Translate content, preserving existing translations from target file"""
-    if existing_translations is None:
-        existing_translations = {}
+def extract_ignored_keys_info(text):
+    """Extract keys marked with [ignorei18n] and their full lines"""
+    ignored_keys = set()
+    key_lines = {}
 
-    pattern = r"(\".*?\"|'.*?')"
+    for line in text.split('\n'):
+        if '[ignorei18n]' in line:
+            match = re.search(KEY_VALUE_PATTERN, line)
+            if match:
+                key = match.group(1)
+                ignored_keys.add(key)
+                key_lines[key] = line
 
+    return ignored_keys, key_lines
+
+def translate_content(text, src, tgt, ignored_keys, ignored_key_lines):
+    """Translate content, preserving lines marked with [ignorei18n] in destination"""
+    # First pass: replace entire lines for ignored keys from destination
+    lines = text.split('\n')
+    result_lines = []
+
+    for line in lines:
+        match = re.search(KEY_VALUE_PATTERN, line)
+        if match:
+            key = match.group(1)
+            # Use preserved line from destination if key is ignored
+            if key in ignored_keys and key in ignored_key_lines:
+                result_lines.append(ignored_key_lines[key])
+                continue
+
+        result_lines.append(line)
+
+    text = '\n'.join(result_lines)
+
+    # Second pass: translate all non-ignored string values
     def replacer(match):
         original = match.group(0)
         quote = original[0]
         stripped = original[1:-1]
 
+        # Skip empty strings
+        if not stripped.strip():
+            return original
+
+        # Find the line containing this match
         start, end = match.span()
         line_start = text.rfind("\n", 0, start) + 1
         line_end = text.find("\n", end)
@@ -69,31 +98,14 @@ def translate_content(text, src, tgt, existing_translations=None):
             line_end = len(text)
         line = text[line_start:line_end]
 
-        after_string = line[end - line_start:]
-        if "//" in after_string and "[ignorei18n]" in after_string:
+        # Skip if line has [ignorei18n] (already preserved in first pass)
+        if '[ignorei18n]' in line:
             return original
 
-        if stripped.strip() == "":
-            return original
-
-        # Check if the line contains a key that exists in existing translations
-        key_match = re.search(r'["\']?(\w+)["\']?\s*:\s*', line)
-        if key_match:
-            key = key_match.group(1)
-            if key in existing_translations:
-                # Use existing translation for this key
-                existing_value = existing_translations[key]
-                # Escape quotes in existing translation to match the quote type
-                if quote == "'":
-                    existing_value = existing_value.replace("'", "\\'")
-                else:
-                    existing_value = existing_value.replace('"', '\\"')
-                return f"{quote}{existing_value}{quote}"
-
-        # Translate new or updated strings
+        # Translate
         translated = GoogleTranslator(source=src, target=tgt).translate(stripped)
 
-        # Escape quotes in translated string to match the quote type
+        # Escape quotes to match the quote type
         if quote == "'":
             translated = translated.replace("'", "\\'")
         else:
@@ -101,7 +113,7 @@ def translate_content(text, src, tgt, existing_translations=None):
 
         return f"{quote}{translated}{quote}"
 
-    return re.sub(pattern, replacer, text)
+    return re.sub(r"(\".*?\"|'.*?')", replacer, text)
 
 output_dir = input_path.parent
 file_ext = input_path.suffix
@@ -109,18 +121,20 @@ file_ext = input_path.suffix
 for tgt_lang in target_langs:
     output_file = output_dir / f"{tgt_lang}{file_ext}"
 
-    # Load existing translations if the target file already exists and update_only_new is enabled
-    existing_translations = {}
-    if update_only_new and output_file.exists():
-        print(f"Loading existing translations from '{output_file}'...")
+    # Load ignored keys from destination file if it exists
+    ignored_keys = set()
+    ignored_key_lines = {}
+
+    if output_file.exists():
         with open(output_file, "r", encoding="utf-8") as f:
             existing_content = f.read()
-            existing_translations = extract_key_value_pairs(existing_content)
-            print(f"  Found {len(existing_translations)} existing translation(s) to preserve")
-    elif not update_only_new:
-        print(f"Re-translating all keys for '{output_file}'...")
+            ignored_keys, ignored_key_lines = extract_ignored_keys_info(existing_content)
 
-    translated_text = translate_content(content, source_lang, tgt_lang, existing_translations)
+            if ignored_keys:
+                print(f"Found {len(ignored_keys)} key(s) marked with [ignorei18n] in '{output_file}' - will preserve")
+
+    # Translate, preserving ignored keys and their comments
+    translated_text = translate_content(content, source_lang, tgt_lang, ignored_keys, ignored_key_lines)
 
     with open(output_file, "w", encoding="utf-8") as f:
         f.write(translated_text)
