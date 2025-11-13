@@ -1,8 +1,9 @@
 import os
-import re
 import subprocess
 from pathlib import Path
-from deep_translator import GoogleTranslator
+from typing import Optional
+from utils.git_utils import find_changed_keys
+from utils.translation_utils import extract_translations_info, translate_content
 
 source_lang = os.getenv("INPUT_SOURCE")
 targets = os.getenv("INPUT_TARGETS", "")
@@ -12,130 +13,61 @@ previous_head = os.getenv("INPUT_PREVIOUS_HEAD", "")
 current_head = os.getenv("INPUT_CURRENT_HEAD", "")
 evaluate_changes = os.getenv("INPUT_EVALUATE_CHANGES", "true").lower() == "true"
 
-input_path = Path(input_file)
-if not input_path.is_file():
-    print(f"File '{input_file}' does not exist")
-    exit(1)
+def main():
+    input_path = Path(input_file)
+    if not input_path.is_file():
+        print(f"File '{input_file}' does not exist")
+        exit(1)
 
-if evaluate_changes:
-    print(f"Checking for changes in '{input_file}' since {previous_head[:7]}...")
-    try:
-        result = subprocess.run(
-            ["git", "diff", "--name-only", previous_head, current_head, str(input_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=os.getcwd()
-        )
+    input_content = input_path.read_text(encoding="utf-8")
+    changed_keys = get_changed_keys(input_file, previous_head, current_head, evaluate_changes)
+    output_dir = input_path.parent
+    file_ext = input_path.suffix
 
-        if not result.stdout.strip():
-            print(f"✓ No changes detected in '{input_file}'. Skipping translation.")
-            exit(0)
+    for tgt_lang in target_langs:
+        output_file = output_dir / f"{tgt_lang}{file_ext}"
+        ignored_key_lines = get_ignored_keys_and_lines(output_file, tgt_lang, changed_keys)
+        translated_text = translate_content(input_content, source_lang, tgt_lang, ignored_key_lines, changed_keys)
+        output_file.write_text(translated_text, encoding="utf-8")
+        if changed_keys:
+            print(f"✓ Updated {len(changed_keys)} translation(s) in '{output_file}'")
         else:
-            print(f"✓ Changes detected in '{input_file}'. Proceeding with translation.")
-    except subprocess.CalledProcessError as e:
-        print(f"Warning: Could not check git diff (error: {e}). Proceeding with translation anyway.")
-    except FileNotFoundError:
-        print("Warning: git command not found. Proceeding with translation anyway.")
-else:
-    print("Change evaluation disabled. Proceeding with translation.")
+            print(f"✓ Translated '{input_file}' -> '{output_file}'")
 
-with open(input_path, "r", encoding="utf-8") as f:
-    content = f.read()
+def get_changed_keys(input_file: str, previous_head: str, current_head: str, evaluate_changes: bool) -> Optional[set]:
+    if evaluate_changes:
+        try:
+            changed_keys = find_changed_keys(input_file, previous_head, current_head)
+            if changed_keys is None:
+                exit(0)
+            return changed_keys
+        except subprocess.CalledProcessError as e:
+            print(f"Warning: Could not check git diff (error: {e}). Proceeding with full translation.")
+        except FileNotFoundError:
+            print("Warning: git command not found. Proceeding with full translation.")
+    else:
+        print("Change evaluation disabled. Proceeding with full translation.")
+    return None
 
-# Regex pattern for key-value pairs
-KEY_VALUE_PATTERN = r'["\']?(\w+)["\']?\s*:\s*["\']([^"\']+)["\']'
-
-def extract_ignored_keys_info(text):
-    """Extract keys marked with [ignorei18n] and their full lines"""
-    ignored_keys = set()
-    key_lines = {}
-
-    for line in text.split('\n'):
-        if '[ignorei18n]' in line:
-            match = re.search(KEY_VALUE_PATTERN, line)
-            if match:
-                key = match.group(1)
-                ignored_keys.add(key)
-                key_lines[key] = line
-
-    return ignored_keys, key_lines
-
-def translate_content(text, src, tgt, ignored_keys, ignored_key_lines):
-    """Translate content, preserving lines marked with [ignorei18n] in destination"""
-    # First pass: replace entire lines for ignored keys from destination
-    lines = text.split('\n')
-    result_lines = []
-
-    for line in lines:
-        match = re.search(KEY_VALUE_PATTERN, line)
-        if match:
-            key = match.group(1)
-            # Use preserved line from destination if key is ignored
-            if key in ignored_keys and key in ignored_key_lines:
-                result_lines.append(ignored_key_lines[key])
-                continue
-
-        result_lines.append(line)
-
-    text = '\n'.join(result_lines)
-
-    # Second pass: translate all non-ignored string values
-    def replacer(match):
-        original = match.group(0)
-        quote = original[0]
-        stripped = original[1:-1]
-
-        # Skip empty strings
-        if not stripped.strip():
-            return original
-
-        # Find the line containing this match
-        start, end = match.span()
-        line_start = text.rfind("\n", 0, start) + 1
-        line_end = text.find("\n", end)
-        if line_end == -1:
-            line_end = len(text)
-        line = text[line_start:line_end]
-
-        # Skip if line has [ignorei18n] (already preserved in first pass)
-        if '[ignorei18n]' in line:
-            return original
-
-        # Translate
-        translated = GoogleTranslator(source=src, target=tgt).translate(stripped)
-
-        # Escape quotes to match the quote type
-        if quote == "'":
-            translated = translated.replace("'", "\\'")
-        else:
-            translated = translated.replace('"', '\\"')
-
-        return f"{quote}{translated}{quote}"
-
-    return re.sub(r"(\".*?\"|'.*?')", replacer, text)
-
-output_dir = input_path.parent
-file_ext = input_path.suffix
-
-for tgt_lang in target_langs:
-    output_file = output_dir / f"{tgt_lang}{file_ext}"
-
-    # Load ignored keys from destination file if it exists
-    ignored_keys = set()
+def get_ignored_keys_and_lines(output_file: Path, tgt_lang: str, changed_keys: Optional[set]) -> dict:
     ignored_key_lines = {}
 
     if output_file.exists():
-        with open(output_file, "r", encoding="utf-8") as f:
-            existing_content = f.read()
-            ignored_keys, ignored_key_lines = extract_ignored_keys_info(existing_content)
+        output_content = output_file.read_text(encoding="utf-8")
+        ignored_keys, ignored_key_lines, existing_translations = extract_translations_info(output_content)
 
-            if ignored_keys:
-                print(f"Found {len(ignored_keys)} key(s) marked with [ignorei18n] in '{output_file}' - will preserve")
+        if changed_keys:
+            print(f"Translating only changed keys for '{tgt_lang}': {', '.join(sorted(changed_keys))}")
+            for key, line in existing_translations.items():
+                if key not in changed_keys and key not in ignored_keys:
+                    ignored_key_lines[key] = line
+        else:
+            print(f"Translating all keys for '{tgt_lang}'")
 
-    # Translate, preserving ignored keys and their comments
-    translated_text = translate_content(content, source_lang, tgt_lang, ignored_keys, ignored_key_lines)
+        if ignored_keys:
+            print(f"Found {len(ignored_keys)} key(s) marked with [ignorei18n] in '{output_file}' - will preserve")
 
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write(translated_text)
-    print(f"✓ Translated '{input_file}' -> '{output_file}'")
+    return ignored_key_lines
+
+if __name__ == "__main__":
+    main()

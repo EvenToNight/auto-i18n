@@ -5,9 +5,9 @@ Automatically translate JavaScript/TypeScript localization files using Google Tr
 ## Features
 
 - 🌍 Automatic translation to multiple languages
-- 🚫 Preserve custom translations with `[ignorei18n]` in destination files
+- 🚫 Preserve custom translations with `[ignorei18n]`
 - 📦 Auto-commits and pushes translations
-- ⚡ Smart change detection (only runs when source file changes)
+- ⚡ Smart change detection (only runs when source file changes and translates only modified keys)
 
 ## Usage
 
@@ -22,7 +22,7 @@ jobs:
   translate:
     runs-on: ubuntu-22.0
     steps:
-      - uses: eventonight/auto-i18n@v1.3.0
+      - uses: eventonight/auto-i18n@v1.4.0
         with:
           source: 'en'
           targets: 'it,fr,es'
@@ -43,37 +43,57 @@ jobs:
 
 ## How it works
 
-1. **Change Detection**: Checks if the source file has changed since the last commit
-   - If no changes: skips translation entirely
-   - If changed: proceeds with translation for all target languages
-2. **Load Preserved Keys**: Reads destination files to find keys marked with `[ignorei18n]`
-3. **Translate**: Translates all strings from source, except those marked as ignored
-4. **Write Files**: Creates/updates target language files (e.g., `it.ts`, `fr.ts`)
-5. **Commit & Push**: Automatically commits and pushes changes with `[skip ci]`
+### With Smart Change Detection (`evaluate_changes: true`, default)
+
+1. **Git Diff Analysis**: Compares source file between commits
+   - If no changes: exits without translation
+   - If changes found: extracts modified keys from git diff
+2. **Incremental Translation**: Only translates modified keys
+   - Preserves existing translations for unchanged keys
+   - Skips translation if `[ignorei18n]` marker is present
+3. **Preserve Custom Translations**: Reads `[ignorei18n]` markers in source and destination files
+4. **Write & Commit**: Updates only changed translations and commits with `[skip ci]`
+
+### Without Change Detection (`evaluate_changes: false`)
+
+1. **Full Translation**: Translates all keys from source file
+   - Skips keys marked with `[ignorei18n]` in source file
+2. **Preserve Custom Translations**: Reads `[ignorei18n]` markers in destination files
+3. **Write & Commit**: Overwrites all target files and commits with `[skip ci]`
 
 ## Preserve Custom Translations
 
-Add `// [ignorei18n]` in the **destination file** to preserve custom translations:
+Use `// [ignorei18n]` to preserve translations or skip translation entirely:
 
-**Source file (`en.ts`):**
+### Skip translation for all languages (source file)
+
+Add `[ignorei18n]` in the **source file** to prevent translation for all target languages:
+
 ```typescript
+// locales/en.ts
 export default {
-  brandName: 'MyApp', // [ignorei18n]
+  brandName: 'MyApp', // [ignorei18n] ← won't be translated to any language
   welcome: 'Welcome',
   goodbye: 'Goodbye',
 }
 ```
 
-**Destination file with custom translation (`it.ts`):**
+All target files will keep `brandName: 'MyApp'` unchanged.
+
+### Preserve custom translations (destination file)
+
+Add `[ignorei18n]` in the **destination file** to preserve your custom translation:
+
 ```typescript
+// locales/it.ts
 export default {
-  brandName: 'MyApp', // [ignorei18n]
+  brandName: 'MyApp',
   welcome: 'Ciao!', // [ignorei18n] ← custom translation, won't be overwritten
   goodbye: 'Arrivederci',
 }
 ```
 
-You can also use `[ignorei18n]` in the source file to skip translation for all languages.
+When `en.ts` changes, `welcome` will keep your custom "Ciao!" translation.
 
 ## File Format
 
@@ -102,8 +122,29 @@ All languages supported by Google Translate. Common codes:
 
 [Full list of language codes](https://cloud.google.com/translate/docs/languages)
 
+## Example: Incremental Translation
+
+When you modify only one key in your source file:
+
+```diff
+// locales/en.ts
+export default {
+  hello: 'Hello',
+- goodbye: 'Goodbye',
++ goodbye: 'See you later',
+  welcome: 'Welcome',
+}
+```
+
+The action will:
+- ✅ Detect that only `goodbye` changed
+- ✅ Translate only `goodbye` to all target languages
+- ✅ Keep existing translations for `hello` and `welcome`
+- ✅ Preserve any keys marked with `[ignorei18n]`
+
 ## Notes
 
 - Generated files are named `{lang}.ts` in the same directory as the source file
 - Commits are made as `github-actions[bot]` with `[skip ci]` to avoid workflow loops
 - Apostrophes in translations (e.g., `it's` → `it\'s`) are automatically escaped
+- Set `evaluate_changes: false` to always translate all keys
