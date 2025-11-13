@@ -82,10 +82,23 @@ def translate_content(text, src, tgt, existing_translations=None):
             key = key_match.group(1)
             if key in existing_translations:
                 # Use existing translation for this key
-                return f"{quote}{existing_translations[key]}{quote}"
+                existing_value = existing_translations[key]
+                # Escape quotes in existing translation to match the quote type
+                if quote == "'":
+                    existing_value = existing_value.replace("'", "\\'")
+                else:
+                    existing_value = existing_value.replace('"', '\\"')
+                return f"{quote}{existing_value}{quote}"
 
         # Translate new or updated strings
         translated = GoogleTranslator(source=src, target=tgt).translate(stripped)
+
+        # Escape quotes in translated string to match the quote type
+        if quote == "'":
+            translated = translated.replace("'", "\\'")
+        else:
+            translated = translated.replace('"', '\\"')
+
         return f"{quote}{translated}{quote}"
 
     return re.sub(pattern, replacer, text)
