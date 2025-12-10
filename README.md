@@ -40,6 +40,9 @@ jobs:
 | `current_head` | Current Git commit hash | ❌ No | `${{ github.sha }}` |
 | `evaluate_changes` | Check if input file has changes before translating | ❌ No | `true` |
 | `github_token` | GitHub token for authentication | ❌ No | `${{ github.token }}` |
+| `node_version` | Node version to use for run pre commit npm command | ❌ No | `20` |
+| `npm_working_directory` | Directory where is located package.json | ❌ No | `.` |
+| `pre-commit-npm-command` | npm command to run before commit | ❌ No | `''` |
 
 ## How it works
 
