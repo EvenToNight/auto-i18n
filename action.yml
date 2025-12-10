@@ -29,6 +29,19 @@ inputs:
     description: "GitHub token for authentication"
     required: false
     default: "${{ github.token }}"
+  node_version:
+    description: "Node.js version to use (default 20)"
+    required: false
+    default: "20"
+  npm_working_directory:
+    description: "Path to the folder where npm commands should run"
+    required: false
+    default: "."
+  pre-commit-npm-command:
+    description: "Optional npm command to run pre-commit (e.g. 'lint' or 'lint:fix')"
+    required: false
+    default: ""
+  
 
 runs:
   using: "composite"
@@ -60,6 +73,21 @@ runs:
         INPUT_PREVIOUS_HEAD: ${{ inputs.previous_head }}
         INPUT_CURRENT_HEAD: ${{ inputs.current_head }}
         INPUT_EVALUATE_CHANGES: ${{ inputs.evaluate_changes }}
+
+    - name: Setup Node.js
+      if: ${{ inputs.pre-commit-npm-command != '' }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node_version }}
+
+    - name: Run pre-commit command
+      if: ${{ inputs.pre-commit-npm-command != '' }}
+      run: |
+        echo "Running pre-commit command..."
+        npm install
+        npm run ${{ inputs.pre-commit-npm-command }}
+      shell: bash
+      working-directory: ${{ inputs.npm_working_directory }}
 
     - name: Commit and push translations
       run: |
