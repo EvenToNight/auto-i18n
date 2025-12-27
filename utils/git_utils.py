@@ -43,5 +43,5 @@ def find_changed_keys(input_file: str, previous_head: str, current_head: str, pa
         print(f"✓ Detected changes in {len(changed_keys)} key(s): {', '.join(sorted(changed_keys))}")
         return changed_keys
     else:
-        print(f"✓ Changes detected but no translatable keys modified. Proceeding with full translation.")
-        return set()
+        print(f"✓ Changes detected but no translatable keys modified.")
+        return None
