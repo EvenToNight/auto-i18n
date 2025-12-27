@@ -51,6 +51,7 @@ jobs:
 1. **Git Diff Analysis**: Compares source file between commits
    - If no changes: exits without translation
    - If changes found: extracts modified keys from git diff
+   - If evaluating changes fails: processes only missing keys
 2. **Incremental Translation**: Only translates modified keys
    - Preserves existing translations for unchanged keys
    - Skips translation if `[ignorei18n]` marker is present

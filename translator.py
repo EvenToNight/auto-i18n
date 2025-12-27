@@ -42,9 +42,9 @@ def get_changed_keys(input_file: str, previous_head: str, current_head: str, eva
                 exit(0)
             return changed_keys
         except subprocess.CalledProcessError as e:
-            print(f"Warning: Could not check git diff (error: {e}). Proceeding with full translation.")
+            print(f"Warning: Could not check git diff (error: {e}). Proceeding with missing translation.")
         except FileNotFoundError:
-            print("Warning: git command not found. Proceeding with full translation.")
+            print("Warning: git command not found. Proceeding with missing translation.")
     else:
         print("Change evaluation disabled. Proceeding with full translation.")
     return None
@@ -60,6 +60,11 @@ def get_ignored_keys_and_lines(output_file: Path, tgt_lang: str, changed_keys: O
             print(f"Translating only changed keys for '{tgt_lang}': {', '.join(sorted(changed_keys))}")
             for key, line in existing_translations.items():
                 if key not in changed_keys and key not in ignored_keys:
+                    ignored_key_lines[key] = line
+        elif evaluate_changes:
+            print(f"Translating only missing keys for '{tgt_lang}'")
+            for key, line in existing_translations.items():
+                if key not in ignored_keys:
                     ignored_key_lines[key] = line
         else:
             print(f"Translating all keys for '{tgt_lang}'")
