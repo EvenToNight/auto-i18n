@@ -42,7 +42,8 @@ jobs:
 | `github_token` | GitHub token for authentication | ❌ No | `${{ github.token }}` |
 | `node_version` | Node version to use for run pre commit npm command | ❌ No | `20` |
 | `npm_working_directory` | Directory where is located package.json | ❌ No | `.` |
-| `pre-commit-npm-command` | npm command to run before commit | ❌ No | `''` |
+| `pre_commit_npm_command` | npm command to run before commit | ❌ No | `''` |
+| `commit_message` | Commit message | ❌ No | `chore(i18n): auto-translate i18n files [skip ci]` |
 
 ## How it works
 

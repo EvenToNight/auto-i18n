@@ -37,10 +37,14 @@ inputs:
     description: "Path to the folder where npm commands should run"
     required: false
     default: "."
-  pre-commit-npm-command:
+  pre_commit_npm_command:
     description: "Optional npm command to run pre-commit (e.g. 'lint' or 'lint:fix')"
     required: false
     default: ""
+  commit_message:
+    description: "Commit message for the translation changes"
+    required: false
+    default: "chore(i18n): auto-translate i18n files [skip ci]"
   
 
 runs:
@@ -75,17 +79,17 @@ runs:
         INPUT_EVALUATE_CHANGES: ${{ inputs.evaluate_changes }}
 
     - name: Setup Node.js
-      if: ${{ inputs.pre-commit-npm-command != '' }}
+      if: ${{ inputs.pre_commit_npm_command != '' }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node_version }}
 
     - name: Run pre-commit command
-      if: ${{ inputs.pre-commit-npm-command != '' }}
+      if: ${{ inputs.pre_commit_npm_command != '' }}
       run: |
         echo "Running pre-commit command..."
         npm install
-        npm run ${{ inputs.pre-commit-npm-command }}
+        npm run ${{ inputs.pre_commit_npm_command }}
       shell: bash
       working-directory: ${{ inputs.npm_working_directory }}
 
@@ -103,7 +107,7 @@ runs:
           echo "No changes to commit. Translation files are already up to date."
         else
           echo "Changes detected. Creating commit..."
-          git commit -m "chore(i18n): auto-translate i18n files [skip ci]"
+          git commit -m "${{ inputs.commit_message }}"
           git pull --rebase origin ${{ github.ref_name }}
           git push
           echo "✓ Changes pushed successfully"
