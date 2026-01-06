@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 from utils.git_utils import find_changed_keys
+from utils.parsing_utils import build_key_paths
 from utils.translation_utils import extract_translations_info, translate_content
 
 source_lang = os.getenv("INPUT_SOURCE")
@@ -26,11 +27,12 @@ def main():
 
     for tgt_lang in target_langs:
         output_file = output_dir / f"{tgt_lang}{file_ext}"
-        ignored_key_lines = get_ignored_keys_and_lines(output_file, tgt_lang, changed_keys)
-        translated_text = translate_content(input_content, source_lang, tgt_lang, ignored_key_lines, changed_keys)
+        changed_and_missing_keys = get_changed_and_missing_keys(input_content, output_file, changed_keys)
+        ignored_key_lines = get_ignored_keys_and_lines(output_file, tgt_lang, changed_and_missing_keys)
+        translated_text = translate_content(input_content, source_lang, tgt_lang, ignored_key_lines, changed_and_missing_keys)
         output_file.write_text(translated_text, encoding="utf-8")
-        if changed_keys:
-            print(f"✓ Updated {len(changed_keys)} translation(s) in '{output_file}'")
+        if changed_and_missing_keys:
+            print(f"✓ Updated {len(changed_and_missing_keys)} translation(s) in '{output_file}'")
         else:
             print(f"✓ Translated '{input_file}' -> '{output_file}'")
 
@@ -49,6 +51,19 @@ def get_changed_keys(input_file: str, previous_head: str, current_head: str, eva
         print("Change evaluation disabled. Proceeding with full translation.")
     return None
 
+def get_changed_and_missing_keys(input_content: str, output_file: Path, changed_keys: Optional[set]) -> set:
+    all_input_keys = build_key_paths(input_content).keys()
+    missing_output_keys = all_input_keys
+    if output_file.exists():
+        output_content = output_file.read_text(encoding="utf-8")
+        all_output_keys = build_key_paths(output_content).keys()
+        missing_output_keys = set(all_input_keys) - set(all_output_keys)
+    
+    if changed_keys:
+        missing_output_keys = changed_keys.union(missing_output_keys)
+   
+    return missing_output_keys
+
 def get_ignored_keys_and_lines(output_file: Path, tgt_lang: str, changed_keys: Optional[set]) -> dict:
     ignored_key_lines = {}
 
@@ -57,15 +72,15 @@ def get_ignored_keys_and_lines(output_file: Path, tgt_lang: str, changed_keys: O
         ignored_keys, ignored_key_lines, existing_translations = extract_translations_info(output_content)
 
         if changed_keys:
-            print(f"Translating only changed keys for '{tgt_lang}': {', '.join(sorted(changed_keys))}")
-            for key, line in existing_translations.items():
+            print(f"Translating changed and missing keys for '{tgt_lang}': {', '.join(sorted(changed_keys))}")
+            for key, line_info in existing_translations.items():
                 if key not in changed_keys and key not in ignored_keys:
-                    ignored_key_lines[key] = line
+                    ignored_key_lines[key] = line_info
         elif evaluate_changes:
             print(f"Translating only missing keys for '{tgt_lang}'")
-            for key, line in existing_translations.items():
+            for key, line_info in existing_translations.items():
                 if key not in ignored_keys:
-                    ignored_key_lines[key] = line
+                    ignored_key_lines[key] = line_info
         else:
             print(f"Translating all keys for '{tgt_lang}'")
 

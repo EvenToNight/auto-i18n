@@ -1,7 +1,9 @@
 import re
 from deep_translator import GoogleTranslator
 
-def extract_translations_info(text: str, pattern: str = r'["\']?(\w+)["\']?\s*:\s*["\']([^"\']+)["\']', ignore_pattern: str = r'\[ignorei18n\]') -> tuple[set, dict, dict]:
+from utils.parsing_utils import build_key_paths, normalize_object_syntax, restore_file
+
+def extract_translations_info(text: str, ignore_pattern: str = r'\[ignorei18n\]') -> tuple[set, dict, dict]:
     """Extract all translations and identify which ones are marked with [ignorei18n]
 
     Returns:
@@ -11,17 +13,12 @@ def extract_translations_info(text: str, pattern: str = r'["\']?(\w+)["\']?\s*:\
     """
     ignored_keys = set()
     ignored_key_lines = {}
-    all_translations = {}
+    all_translations = build_key_paths(text)
 
-    for line in text.split('\n'):
-        match = re.search(pattern, line)
-        if match:
-            key = match.group(1)
-            all_translations[key] = line
-
-            if re.search(ignore_pattern, line):
-                ignored_keys.add(key)
-                ignored_key_lines[key] = line
+    for key, line_info in all_translations.items():
+        if re.search(ignore_pattern, line_info["comment"] or ""):
+            ignored_keys.add(key)
+            ignored_key_lines[key] = line_info
 
     return ignored_keys, ignored_key_lines, all_translations
 
@@ -35,54 +32,53 @@ def translate_content(text:str, source_lang:str, tgt_lang:str, ignored_key_lines
         ignored_key_lines: Dict mapping keys to their full lines from destination
         keys_to_translate: Set of specific keys to translate (None or empty set = translate all)
     """
-    lines = text.split('\n')
-    result_lines = __inject_ignored_line(lines, ignored_key_lines, pattern)
-    final_lines = __translate_lines(result_lines, ignore_pattern, pattern, source_lang, tgt_lang, keys_to_translate)
-    return '\n'.join(final_lines)
+    key_paths = build_key_paths(text)
+    result_key_paths = __inject_ignored_line(key_paths, ignored_key_lines)
+    final_key_paths = __translate_lines(result_key_paths, ignore_pattern, source_lang, tgt_lang, keys_to_translate)
+    outText = restore_file(text, final_key_paths)
+    return outText
+    
+def __inject_ignored_line(lines, ignored_key_lines):
+    result_map = {}
 
-def __inject_ignored_line(lines, ignored_key_lines, pattern):
-    result_lines = []
-    for line in lines:
-        match = re.search(pattern, line)
-        if match:
-            key = match.group(1)
-            if key in ignored_key_lines:
-                result_lines.append(ignored_key_lines[key])
-                continue
-        result_lines.append(line)
-    return result_lines
+    for key, line_info in lines.items():
+        if key in ignored_key_lines:
+            result_map[key] = ignored_key_lines[key]
+        else:
+            result_map[key] = line_info
+    return result_map
 
-def __translate_lines(lines: list, ignore_pattern: str, pattern: str, source_lang: str, tgt_lang: str, keys_to_translate: set) -> list:
-    result_lines = []
-    for line in lines:
-        if re.search(ignore_pattern, line):
-            result_lines.append(line)
-            continue
+def __translate_lines(lines, ignore_pattern: str, source_lang: str, tgt_lang: str, keys_to_translate: set) -> list:
+    def replacer(match):
+        original = match.group(0)
+        stripped = original[1:-1]
+        if not stripped.strip():
+            return original
+        current_try = 0
+        max_tries = 3
+        while current_try < max_tries:
+            try:
+                translated = GoogleTranslator(source=source_lang, target=tgt_lang).translate(stripped)
+                break
+            except Exception as e:
+                current_try += 1
+                print(f"Translation attempt {current_try} failed for '{stripped}': {e}")
+                if current_try == max_tries:
+                    print(f"Max translation attempts reached for '{stripped}'. Using original text.")
+                    translated = stripped
+        return f"\"{translated}\""
+    
+    result_map = {}
+    for key, line_info in lines.items():
+        hasToBeIgnored = keys_to_translate and key not in keys_to_translate
+        if re.search(ignore_pattern, line_info["comment"] or "") or hasToBeIgnored:
+            result_map[key] = line_info
+        else:
+            print(f"Translating key: {key} with value: {line_info['value']}")
+            translated_line = re.sub(r"(\".*?\"|'.*?')", replacer, line_info["value"])
+            result_map[key] = {
+                "value": translated_line,
+                "comment": line_info["comment"]
+            }   
 
-        key_match = re.search(pattern, line)
-        if key_match:
-            key = key_match.group(1)
-            if keys_to_translate and key not in keys_to_translate:
-                result_lines.append(line)
-                continue
-
-        def replacer(match):
-            original = match.group(0)
-            quote = original[0]
-            stripped = original[1:-1]
-
-            if not stripped.strip():
-                return original
-
-            translated = GoogleTranslator(source=source_lang, target=tgt_lang).translate(stripped)
-
-            if quote == "'":
-                translated = translated.replace("'", "\\'")
-            else:
-                translated = translated.replace('"', '\\"')
-
-            return f"{quote}{translated}{quote}"
-
-        translated_line = re.sub(r"(\".*?\"|'.*?')", replacer, line)
-        result_lines.append(translated_line)
-    return result_lines
+    return result_map

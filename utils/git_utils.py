@@ -1,10 +1,10 @@
 import re
 import subprocess
 from typing import Optional
+from utils.parsing_utils import build_key_paths
 
-
-def find_changed_keys(input_file: str, previous_head: str, current_head: str, pattern: str = r'["\']?(\w+)["\']?\s*:\s*["\']([^"\']+)["\']')  -> Optional[set]:
-    """Extract changed keys from git diff between two commits
+def find_changed_keys(input_file: str, previous_head: str, current_head: str)  -> Optional[set]:
+    """Extract changed keys with full paths from git diff between two commits
 
     Args:
         input_file: Path to the source i18n file to check
@@ -13,7 +13,7 @@ def find_changed_keys(input_file: str, previous_head: str, current_head: str, pa
         pattern: Regex pattern to match key-value pairs
 
     Returns:
-        Set of changed keys, or None if no changes detected
+        Set of changed full key paths, or None if no changes detected
 
     Raises:
         subprocess.CalledProcessError: If git command fails
@@ -31,13 +31,26 @@ def find_changed_keys(input_file: str, previous_head: str, current_head: str, pa
     if not diff_result.stdout.strip():
         print(f"✓ No changes detected in '{input_file}'. Skipping translation.")
         return None
+    
+    old_file_key_paths = build_key_paths(subprocess.run(
+        ["git", "show", f"{previous_head}:{input_file}"],
+        capture_output=True,
+        text=True,
+        check=True
+    ).stdout)
+
+    new_file_key_paths = build_key_paths(subprocess.run(
+        ["git", "show", f"{current_head}:{input_file}"],
+        capture_output=True,
+        text=True,
+        check=True
+    ).stdout)
 
     changed_keys = set()
-    for line in diff_result.stdout.split('\n'):
-        if line.startswith('+') and not line.startswith('+++'):
-            match = re.search(pattern, line[1:])
-            if match:
-                changed_keys.add(match.group(1))
+    for key, line_info in new_file_key_paths.items():
+        old_line_info = old_file_key_paths.get(key)
+        if not old_line_info or old_line_info["value"] != line_info["value"]:
+            changed_keys.add(key)
 
     if changed_keys:
         print(f"✓ Detected changes in {len(changed_keys)} key(s): {', '.join(sorted(changed_keys))}")
