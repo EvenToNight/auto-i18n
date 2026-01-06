@@ -14,15 +14,17 @@ OBJECT_START_PATTERN = re.compile(
 def normalize_object_syntax(content: str) -> str:
     """
     Normalize JS object syntax into one-key-per-line format.
-    Safe for quotes, apostrophes, and inline ignore comments.
+    Supports multiline values, apostrophes, unicode and ignore comments.
     """
     content = re.sub(r'\{\s*', '{\n', content)
     content = re.sub(r'\s*\}', '\n}', content)
     content = re.sub(
-        r'(\w+\s*:\s*)(["\'])(.*?)\2\s*,?\s*(//\s*\[ignorei18n\].*)?',
-        r'\1\2\3\2 \4\n',
-        content
+        r'(\w+)\s*:\s*(["\'])(.*?)\2\s*,?\s*(//\s*\[ignorei18n\].*)?',
+        r'\1: \2\3\2 \4\n',
+        content,
+        flags=re.DOTALL
     )
+    content = re.sub(r',', '', content)
     content = re.sub(r'\n{2,}', '\n', content)
     return content.strip()
 

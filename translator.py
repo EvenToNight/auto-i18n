@@ -28,6 +28,7 @@ def main():
     for tgt_lang in target_langs:
         output_file = output_dir / f"{tgt_lang}{file_ext}"
         changed_and_missing_keys = get_changed_and_missing_keys(input_content, output_file, changed_keys)
+        print(changed_and_missing_keys)
         ignored_key_lines = get_ignored_keys_and_lines(output_file, tgt_lang, changed_and_missing_keys)
         translated_text = translate_content(input_content, source_lang, tgt_lang, ignored_key_lines, changed_and_missing_keys)
         output_file.write_text(translated_text, encoding="utf-8")

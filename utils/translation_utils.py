@@ -69,8 +69,8 @@ def __translate_lines(lines, ignore_pattern: str, source_lang: str, tgt_lang: st
         return f"\"{translated}\""
     
     result_map = {}
-    for key, line_info in lines.items():
-        hasToBeIgnored = keys_to_translate and key not in keys_to_translate
+    for key, line_info in lines.items():        
+        hasToBeIgnored = key not in keys_to_translate if keys_to_translate else True
         if re.search(ignore_pattern, line_info["comment"] or "") or hasToBeIgnored:
             result_map[key] = line_info
         else:
