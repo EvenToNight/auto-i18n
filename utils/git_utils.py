@@ -29,7 +29,7 @@ def find_changed_keys(input_file: str, previous_head: str, current_head: str)  -
     )
 
     if not diff_result.stdout.strip():
-        print(f"✓ No changes detected in '{input_file}'. Skipping translation.")
+        print(f"✓ No changes detected in '{input_file}'.")
         return None
     
     old_file_key_paths = build_key_paths(subprocess.run(

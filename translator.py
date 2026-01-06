@@ -40,8 +40,6 @@ def get_changed_keys(input_file: str, previous_head: str, current_head: str, eva
     if evaluate_changes:
         try:
             changed_keys = find_changed_keys(input_file, previous_head, current_head)
-            if changed_keys is None:
-                exit(0)
             return changed_keys
         except subprocess.CalledProcessError as e:
             print(f"Warning: Could not check git diff (error: {e}). Proceeding with missing translation.")
