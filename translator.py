@@ -64,12 +64,11 @@ def get_changed_and_missing_keys(input_content: str, output_file: Path, changed_
 
 def get_ignored_keys_and_lines(output_file: Path, tgt_lang: str, changed_keys: Optional[set]) -> dict:
     ignored_key_lines = {}
-
     if output_file.exists():
         output_content = output_file.read_text(encoding="utf-8")
         ignored_keys, ignored_key_lines, existing_translations = extract_translations_info(output_content)
 
-        if changed_keys:
+        if changed_keys is not None:
             print(f"Translating changed and missing keys for '{tgt_lang}': {', '.join(sorted(changed_keys))}")
             for key, line_info in existing_translations.items():
                 if key not in changed_keys and key not in ignored_keys:

@@ -74,12 +74,10 @@ def parse_object_recursive(node: Node, source: bytes, path: List[str] = None) ->
             # Check if value is a string
             if value_node.type == 'string':
                 string_value = extract_string_value(value_node, source)
-                quote_char = get_node_text(value_node, source)[0]
                 comment = find_comment_for_node(child, source)
 
                 result[full_key] = {
                     'value': string_value,
-                    'quote': quote_char,
                     'comment': comment
                 }
 
@@ -123,35 +121,6 @@ def parse_ts_file(content: str) -> Dict[str, dict]:
 
     return result
 
-
-def normalize_object_syntax(content: str) -> str:
-    """
-    Normalize JS object syntax into one-key-per-line format.
-    Supports multiline values, apostrophes, unicode and ignore comments.
-    """
-    content = re.sub(r'\{\s*', '{\n', content)
-    content = re.sub(r'\s*\}', '\n}', content)
-
-    # Normalize key-value pairs onto single lines, removing commas
-    def replace_kv(match):
-        key = match.group(1)
-        quote = match.group(2)
-        value = match.group(3)
-        comment = match.group(4) if match.group(4) else ''
-        if comment:
-            return f'{key}: {quote}{value}{quote} {comment}\n'
-        else:
-            return f'{key}: {quote}{value}{quote}\n'
-
-    content = re.sub(
-        r'(\w+)\s*:\s*(["\'])(.*?)\2\s*,?\s*(//\s*\[ignorei18n\].*)?',
-        replace_kv,
-        content,
-        flags=re.DOTALL
-    )
-    content = re.sub(r'\n{2,}', '\n', content)
-    return content.strip()
-
 def build_key_paths(content: str) -> Dict[str, dict]:
     """
     Build full dot-separated paths for all translation keys using tree-sitter.
@@ -192,13 +161,12 @@ def restore_file(content: str, key_paths: Dict[str, dict]) -> str:
                 if value_node.type == 'string' and full_key in key_paths:
                     # Get the new value from key_paths
                     new_value = key_paths[full_key]['value']
-                    quote_char = key_paths[full_key].get('quote', "'")
 
-                    # Create replacement
+                    # Always use double quotes
                     replacements.append((
                         value_node.start_byte,
                         value_node.end_byte,
-                        f"{quote_char}{new_value}{quote_char}"
+                        f'"{new_value}"'
                     ))
 
                 elif value_node.type == 'object':
