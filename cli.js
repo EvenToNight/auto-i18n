@@ -47,8 +47,23 @@ if (!source || !targets || !inputFile) {
 }
 
 const evaluateChanges = args.includes("--evaluate-changes");
-const previousHead = getArg("previous-head") || "";
-const currentHead = getArg("current-head") || "";
+
+function gitRevParse(ref) {
+  const result = spawnSync("git", ["rev-parse", ref], { encoding: "utf8" });
+  if (result.status !== 0) return "";
+  return result.stdout.trim();
+}
+
+let previousHead = getArg("previous-head") || "";
+let currentHead = getArg("current-head") || "";
+
+if (evaluateChanges && !previousHead && !currentHead) {
+  currentHead = gitRevParse("HEAD");
+  previousHead = gitRevParse("HEAD~1");
+  if (previousHead && currentHead) {
+    console.log(`Using git range: ${previousHead.slice(0, 7)}...${currentHead.slice(0, 7)}`);
+  }
+}
 
 const actionDir = path.dirname(require.resolve("./package.json"));
 const requirementsFile = path.join(actionDir, "requirements.txt");
