@@ -1,11 +1,15 @@
 {
-  "name": "auto-i18n",
+  "name": "@eventonight/auto-i18n",
   "version": "1.0.0",
   "description": "Automatically translate JS/TS localization files",
   "bin": {
-    "auto-i18n": "./cli.js"
+    "auto-i18n": "cli.js"
   },
-  "keywords": ["i18n", "translation", "localization"],
+  "keywords": [
+    "i18n",
+    "translation",
+    "localization"
+  ],
   "license": "MIT",
   "devDependencies": {
     "semantic-release": "^24.0.0",
@@ -16,7 +20,9 @@
     "@semantic-release/git": "^10.0.0"
   },
   "release": {
-    "branches": ["main"],
+    "branches": [
+      "main"
+    ],
     "plugins": [
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",
