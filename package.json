@@ -1,6 +1,6 @@
 {
   "name": "@eventonight/auto-i18n",
-  "version": "1.7.3",
+  "version": "1.8.1",
   "description": "Automatically translate JS/TS localization files",
   "bin": {
     "auto-i18n": "cli.js"
