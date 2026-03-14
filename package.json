@@ -11,13 +11,17 @@
     "localization"
   ],
   "license": "MIT",
+  "scripts": {
+    "prepack": "cp README.md README.github.md && cp README.npm.md README.md",
+    "postpack": "mv README.github.md README.md"
+  },
   "devDependencies": {
-    "semantic-release": "^24.0.0",
-    "@semantic-release/commit-analyzer": "^13.0.0",
-    "@semantic-release/release-notes-generator": "^14.0.0",
     "@semantic-release/changelog": "^6.0.0",
-    "@semantic-release/npm": "^12.0.0",
-    "@semantic-release/git": "^10.0.0"
+    "@semantic-release/commit-analyzer": "^13.0.0",
+    "@semantic-release/git": "^10.0.0",
+    "@semantic-release/github": "^10.3.5",
+    "@semantic-release/release-notes-generator": "^14.0.0",
+    "semantic-release": "^24.0.0"
   },
   "release": {
     "branches": [
@@ -27,8 +31,8 @@
       "@semantic-release/commit-analyzer",
       "@semantic-release/release-notes-generator",
       "@semantic-release/changelog",
-      "@semantic-release/npm",
-      "@semantic-release/git"
+      "@semantic-release/git",
+      "@semantic-release/github"
     ]
   }
 }
