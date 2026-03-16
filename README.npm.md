@@ -30,9 +30,10 @@ auto-i18n --source <lang> --targets <langs> --file <path> [options]
 
 | Flag | Description |
 |------|-------------|
-| `--evaluate-changes` | Only translate keys that changed since last commit |
+| `--evaluate-changes` | Only translate keys that changed since the last local commit. Use `--previous-head @{u}` to compare against the remote upstream instead. |
 | `--previous-head` | Git commit hash to compare against (used with `--evaluate-changes`) |
 | `--current-head` | Current git commit hash (used with `--evaluate-changes`) |
+| `--check-only` | Check for missing translation keys without translating. Exits with code 1 if any key is missing. |
 | `--help` | Show help message |
 
 ### Examples
@@ -45,6 +46,11 @@ auto-i18n --source en --targets it,fr,es --file locales/en.ts
 **Only translate changed keys (smart mode):**
 ```bash
 auto-i18n --source en --targets it,fr,es --file locales/en.ts --evaluate-changes
+```
+
+**Check for missing keys (no translation, fails if out of sync):**
+```bash
+auto-i18n --source en --targets it,fr,es --file locales/en.ts --check-only
 ```
 
 ## GitHub Action
@@ -62,7 +68,7 @@ jobs:
   translate:
     runs-on: ubuntu-latest
     steps:
-      - uses: eventonight/auto-i18n@v1
+      - uses: eventonight/auto-i18n@v1.9.0
         with:
           source: 'en'
           targets: 'it,fr,es'

@@ -22,7 +22,7 @@ jobs:
   translate:
     runs-on: ubuntu-22.0
     steps:
-      - uses: eventonight/auto-i18n@v1.4.0
+      - uses: eventonight/auto-i18n@v1.9.0
         with:
           source: 'en'
           targets: 'it,fr,es'
@@ -44,6 +44,7 @@ jobs:
 | `npm_working_directory` | Directory where is located package.json | ❌ No | `.` |
 | `pre_commit_npm_command` | npm command to run before commit | ❌ No | `''` |
 | `commit_message` | Commit message | ❌ No | `chore(i18n): auto-translate i18n files [skip ci]` |
+| `check_only` | Only check for missing translation keys without translating or committing. Fails if any key is missing. | ❌ No | `false` |
 
 ## How it works
 
@@ -146,6 +147,25 @@ The action will:
 - ✅ Translate only `goodbye` to all target languages
 - ✅ Keep existing translations for `hello` and `welcome`
 - ✅ Preserve any keys marked with `[ignorei18n]`
+
+## Check Only Mode
+
+Use `check_only: true` to verify translations are complete without translating or committing. Useful in CI to enforce that all keys are translated before merging.
+
+```yaml
+- uses: eventonight/auto-i18n@v1.9.0
+  with:
+    source: 'en'
+    targets: 'it,fr,es'
+    input_file: 'locales/en.ts'
+    check_only: 'true'
+```
+
+The action will fail with a list of missing keys if any target file is out of sync:
+
+```
+✗ 'locales/it.ts' is missing 2 key(s): auth.login, auth.logout
+```
 
 ## Notes
 

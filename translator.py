@@ -13,6 +13,7 @@ input_file = os.getenv("INPUT_INPUT_FILE")
 previous_head = os.getenv("INPUT_PREVIOUS_HEAD", "")
 current_head = os.getenv("INPUT_CURRENT_HEAD", "")
 evaluate_changes = os.getenv("INPUT_EVALUATE_CHANGES", "true").lower() == "true"
+check_only = os.getenv("INPUT_CHECK_ONLY", "false").lower() == "true"
 
 def main():
     input_path = Path(input_file)
@@ -21,9 +22,24 @@ def main():
         exit(1)
 
     input_content = input_path.read_text(encoding="utf-8")
-    changed_keys = get_changed_keys(input_file, previous_head, current_head, evaluate_changes)
     output_dir = input_path.parent
     file_ext = input_path.suffix
+
+    if check_only:
+        has_missing = False
+        for tgt_lang in target_langs:
+            output_file = output_dir / f"{tgt_lang}{file_ext}"
+            missing_keys = get_changed_and_missing_keys(input_content, output_file, None)
+            if missing_keys:
+                print(f"✗ '{output_file}' is missing {len(missing_keys)} key(s): {', '.join(sorted(missing_keys))}")
+                has_missing = True
+            else:
+                print(f"✓ '{output_file}' is up to date")
+        if has_missing:
+            exit(1)
+        return
+
+    changed_keys = get_changed_keys(input_file, previous_head, current_head, evaluate_changes)
 
     for tgt_lang in target_langs:
         output_file = output_dir / f"{tgt_lang}{file_ext}"

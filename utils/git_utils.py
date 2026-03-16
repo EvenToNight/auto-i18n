@@ -4,13 +4,14 @@ from typing import Optional
 from utils.parsing_utils import build_key_paths
 
 def find_changed_keys(input_file: str, previous_head: str, current_head: str)  -> Optional[set]:
-    """Extract changed keys with full paths from git diff between two commits
+    """Extract changed keys with full paths from git diff.
+
+    When current_head is empty, compares previous_head against the working tree file.
 
     Args:
         input_file: Path to the source i18n file to check
         previous_head: Previous git commit hash
-        current_head: Current git commit hash
-        pattern: Regex pattern to match key-value pairs
+        current_head: Current git commit hash, or empty string to use working tree
 
     Returns:
         Set of changed full key paths, or None if no changes detected
@@ -19,19 +20,19 @@ def find_changed_keys(input_file: str, previous_head: str, current_head: str)  -
         subprocess.CalledProcessError: If git command fails
         FileNotFoundError: If git is not installed
     """
-    print(f"Checking for changes in '{input_file}' between {previous_head[:7]}...{current_head[:7]}")
+    if current_head:
+        print(f"Checking for changes in '{input_file}' between {previous_head[:7]}...{current_head[:7]}")
+        diff_cmd = ["git", "diff", previous_head, current_head, input_file]
+    else:
+        print(f"Checking for changes in '{input_file}' since {previous_head[:7]}")
+        diff_cmd = ["git", "diff", previous_head, "--", input_file]
 
-    diff_result = subprocess.run(
-        ["git", "diff", previous_head, current_head, input_file],
-        capture_output=True,
-        text=True,
-        check=True
-    )
+    diff_result = subprocess.run(diff_cmd, capture_output=True, text=True, check=True)
 
     if not diff_result.stdout.strip():
         print(f"✓ No changes detected in '{input_file}'.")
         return None
-    
+
     old_file_key_paths = build_key_paths(subprocess.run(
         ["git", "show", f"{previous_head}:{input_file}"],
         capture_output=True,
@@ -39,12 +40,18 @@ def find_changed_keys(input_file: str, previous_head: str, current_head: str)  -
         check=True
     ).stdout)
 
-    new_file_key_paths = build_key_paths(subprocess.run(
-        ["git", "show", f"{current_head}:{input_file}"],
-        capture_output=True,
-        text=True,
-        check=True
-    ).stdout)
+    if current_head:
+        new_content = subprocess.run(
+            ["git", "show", f"{current_head}:{input_file}"],
+            capture_output=True,
+            text=True,
+            check=True
+        ).stdout
+    else:
+        from pathlib import Path
+        new_content = Path(input_file).read_text(encoding="utf-8")
+
+    new_file_key_paths = build_key_paths(new_content)
 
     changed_keys = set()
     for key, line_info in new_file_key_paths.items():

@@ -27,6 +27,7 @@ Options:
   --evaluate-changes   Compare against git HEAD to only translate changed keys (default: false)
   --previous-head      Git commit hash to compare against (requires --evaluate-changes)
   --current-head       Current git commit hash (requires --evaluate-changes)
+  --check-only         Check for missing translation keys without translating. Exits with code 1 if any key is missing.
   --help               Show this help message
 `);
 }
@@ -47,6 +48,7 @@ if (!source || !targets || !inputFile) {
 }
 
 const evaluateChanges = args.includes("--evaluate-changes");
+const checkOnly = args.includes("--check-only");
 
 function gitRevParse(ref) {
   const result = spawnSync("git", ["rev-parse", ref], { encoding: "utf8" });
@@ -58,10 +60,10 @@ let previousHead = getArg("previous-head") || "";
 let currentHead = getArg("current-head") || "";
 
 if (evaluateChanges && !previousHead && !currentHead) {
-  currentHead = gitRevParse("HEAD");
-  previousHead = gitRevParse("HEAD~1");
-  if (previousHead && currentHead) {
-    console.log(`Using git range: ${previousHead.slice(0, 7)}...${currentHead.slice(0, 7)}`);
+  previousHead = gitRevParse("HEAD");
+  // currentHead left empty → find_changed_keys will compare against working tree
+  if (previousHead) {
+    console.log(`Using git range: HEAD (${previousHead.slice(0, 7)})...working tree`);
   }
 }
 
@@ -100,6 +102,7 @@ const python = spawnSync(
       INPUT_EVALUATE_CHANGES: evaluateChanges ? "true" : "false",
       INPUT_PREVIOUS_HEAD: previousHead,
       INPUT_CURRENT_HEAD: currentHead,
+      INPUT_CHECK_ONLY: checkOnly ? "true" : "false",
     },
   }
 );

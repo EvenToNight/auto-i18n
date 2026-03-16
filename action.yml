@@ -45,7 +45,10 @@ inputs:
     description: "Commit message for the translation changes"
     required: false
     default: "chore(i18n): auto-translate i18n files [skip ci]"
-  
+  check_only:
+    description: "If true, only check that all translation keys are present without translating or committing. Fails if any key is missing."
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -77,15 +80,16 @@ runs:
         INPUT_PREVIOUS_HEAD: ${{ inputs.previous_head }}
         INPUT_CURRENT_HEAD: ${{ inputs.current_head }}
         INPUT_EVALUATE_CHANGES: ${{ inputs.evaluate_changes }}
+        INPUT_CHECK_ONLY: ${{ inputs.check_only }}
 
     - name: Setup Node.js
-      if: ${{ inputs.pre_commit_npm_command != '' }}
+      if: ${{ inputs.check_only != 'true' && inputs.pre_commit_npm_command != '' }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node_version }}
 
     - name: Run pre-commit command
-      if: ${{ inputs.pre_commit_npm_command != '' }}
+      if: ${{ inputs.check_only != 'true' && inputs.pre_commit_npm_command != '' }}
       run: |
         echo "Running pre-commit command..."
         npm install
@@ -94,6 +98,7 @@ runs:
       working-directory: ${{ inputs.npm_working_directory }}
 
     - name: Commit and push translations
+      if: ${{ inputs.check_only != 'true' }}
       run: |
         git config --local user.name "github-actions[bot]"
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
